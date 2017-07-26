@@ -9,12 +9,15 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-const network = "udp"
-
 var _ = Describe("UDP", func() {
+	const (
+		resolveNetwork = "udp"
+		network        = "udp"
+	)
+
 	It("tests", func() {
 		dataChan := make(chan []byte)
-		laddr, err := net.ResolveUDPAddr(network, "0.0.0.0:0")
+		laddr, err := net.ResolveUDPAddr(resolveNetwork, "0.0.0.0:0")
 		Expect(err).ToNot(HaveOccurred())
 		ln, err := net.ListenUDP(network, laddr)
 		Expect(err).ToNot(HaveOccurred())
@@ -30,7 +33,7 @@ var _ = Describe("UDP", func() {
 		}()
 
 		addrString := "localhost:" + strconv.Itoa(ln.LocalAddr().(*net.UDPAddr).Port)
-		addr, err := net.ResolveUDPAddr(network, addrString)
+		addr, err := net.ResolveUDPAddr(resolveNetwork, addrString)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(addr.Port).To(Equal(ln.LocalAddr().(*net.UDPAddr).Port))
 
