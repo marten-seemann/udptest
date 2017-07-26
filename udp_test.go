@@ -1,25 +1,27 @@
 package udptest
 
 import (
-	"crypto/rand"
 	"net"
+	"strconv"
+	"time"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )
 
+const network = "udp"
+
 var _ = Describe("UDP", func() {
 	It("tests", func() {
 		dataChan := make(chan []byte)
-		serverAddrChan := make(chan *net.UDPAddr)
+		laddr, err := net.ResolveUDPAddr(network, "0.0.0.0:0")
+		Expect(err).ToNot(HaveOccurred())
+		ln, err := net.ListenUDP(network, laddr)
+		Expect(err).ToNot(HaveOccurred())
+		defer ln.Close()
+
 		go func() {
 			defer GinkgoRecover()
-			addr, err := net.ResolveUDPAddr("udp", "127.0.0.1:0")
-			Expect(err).ToNot(HaveOccurred())
-			ln, err := net.ListenUDP("udp", addr)
-			Expect(err).ToNot(HaveOccurred())
-			defer ln.Close()
-			serverAddrChan <- ln.LocalAddr().(*net.UDPAddr)
 			data := make([]byte, 100)
 			n, _, err := ln.ReadFrom(data)
 			Expect(err).ToNot(HaveOccurred())
@@ -27,14 +29,20 @@ var _ = Describe("UDP", func() {
 			dataChan <- data
 		}()
 
-		raddr := <-serverAddrChan
-		conn, err := net.DialUDP("udp", nil, raddr)
-		Expect(err).ToNot(HaveOccurred())
+		addrString := "localhost:" + strconv.Itoa(ln.LocalAddr().(*net.UDPAddr).Port)
+		addr, err := net.ResolveUDPAddr(network, addrString)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(addr.Port).To(Equal(ln.LocalAddr().(*net.UDPAddr).Port))
+
 		data := make([]byte, 77)
-		_, err = rand.Read(data)
-		Expect(err).ToNot(HaveOccurred())
-		_, err = conn.Write(data)
-		Expect(err).ToNot(HaveOccurred())
+		for i := 0; i < 10; i++ {
+			conn, err := net.DialUDP(network, nil, addr)
+			Expect(err).ToNot(HaveOccurred())
+			defer conn.Close()
+			_, err = conn.Write(data)
+			Expect(err).ToNot(HaveOccurred())
+			time.Sleep(time.Millisecond)
+		}
 		Eventually(dataChan).Should(Receive(Equal(data)))
 	})
 })
